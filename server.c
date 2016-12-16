@@ -68,66 +68,83 @@ int main(int argc, char **argv)
     {
         printf ("\n----wait for new connect\n");
         len = sizeof(struct sockaddr);
-        if ((new_fd =accept(sockfd, (struct sockaddr *) &their_addr,&len)) == -1) {
+        /*if ((new_fd =accept(sockfd, (struct sockaddr *) &their_addr,&len)) == -1) {
             perror("accept");
             exit(errno);
         } else
             printf("server: got connection from %s, port %d, socket %d\n",
                    inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port), new_fd);
+        */
 
-        //MCT-1.0 -
-        //FD_ZERO(&rfds);
-        //FD_SET(0, &rfds);
-        FD_SET(new_fd, &rfds);
-        maxfd = new_fd;
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
-
-        retval = select(maxfd + 1, &rfds, NULL, NULL, &tv);
-        if (retval == -1)
-        {
-            perror("select");
-            exit(EXIT_FAILURE);
-        } else if (retval == 0) {
-            continue;
-        }
-        else
-        {
-            if (FD_ISSET(0, &rfds))
-            {
-                bzero(buf, MAXBUF + 1);
-                fgets(buf, MAXBUF, stdin);
-                if (!strncasecmp(buf, "quit", 4)) {
-                    printf("i will quit!\n");
-                    break;
-                }
-                len = send(new_fd, buf, strlen(buf) - 1, 0);
-                if (len > 0)
-                    printf ("send successful,%d byte send!\n",len);
-                else {
-                    printf("send failure!");
-                    break;
-                }
+        int fd[2];
+        for (int i = 0; i <lisnum ; ++i) {
+            if ((fd[i]=accept(sockfd, (struct sockaddr *) &their_addr,&len)) == -1){
+                perror("accept");
+                exit(errno);
+            } else {
+                printf("server: got %dth connection from %s, port %d, socket %d\n",
+                       i, inet_ntoa(their_addr.sin_addr), ntohs(their_addr.sin_port), new_fd);
+                FD_SET(new_fd, &rfds);
             }
-            if (FD_ISSET(new_fd, &rfds))
+        }
+
+
+        while (1){
+
+            //MCT-1.0 -
+            //FD_ZERO(&rfds);
+            //FD_SET(0, &rfds);
+            //FD_SET(new_fd, &rfds);
+            maxfd = fd[lisnum-1]+1;
+            tv.tv_sec = 3;
+            tv.tv_usec = 0;
+
+            retval = select(maxfd + 1, &rfds, NULL, NULL, &tv);
+            if (retval == -1)
             {
-                bzero(buf, MAXBUF + 1);
-                len = recv(new_fd, buf, MAXBUF, 0);
-                if (len > 0)
-                    printf ("recv success :'%s',%dbyte recv\n", buf, len);
-                else
+                perror("select");
+                exit(EXIT_FAILURE);
+            } else if (retval == 0) {
+                printf("%s","Time out..\n");
+                continue;
+            }
+            else
+            {
+                if (FD_ISSET(0, &rfds))
                 {
-                    if (len < 0)
-                        printf("recv failure\n");
+                    bzero(buf, MAXBUF + 1);
+                    fgets(buf, MAXBUF, stdin);
+                    if (!strncasecmp(buf, "quit", 4)) {
+                        printf("i will quit!\n");
+                        break;
+                    }
+                    len = send(new_fd, buf, strlen(buf) - 1, 0);
+                    if (len > 0)
+                        printf ("send successful,%d byte send!\n",len);
+                    else {
+                        printf("send failure!");
+                        break;
+                    }
+                }
+                if (FD_ISSET(new_fd, &rfds))
+                {
+                    bzero(buf, MAXBUF + 1);
+                    len = recv(new_fd, buf, MAXBUF, 0);
+                    if (len > 0)
+                        printf ("recv success :'%s',%dbyte recv\n", buf, len);
                     else
                     {
-                        printf("the ohter one end ,quit\n");
-                        break;
+                        if (len < 0)
+                            printf("recv failure\n");
+                        else
+                        {
+                            printf("the ohter one end ,quit\n");
+                            break;
+                        }
                     }
                 }
             }
         }
-
         close(new_fd);
         printf("need othe connecdt (no->quit)");
         fflush(stdout);
