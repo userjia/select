@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     if (argv[1])
         my_addr.sin_addr.s_addr = inet_addr(argv[1]);
     else
-        my_addr.sin_addr.s_addr = INADDR_ANY;
+        my_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (bind(sockfd, (struct sockaddr *) &my_addr, sizeof(struct sockaddr)) == -1) {
         perror("bind");
@@ -61,8 +61,10 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    FD_ZERO(&rfds);
-    FD_SET(0, &rfds);//MCT-1.0 + improve receive Many Connections Test
+    //FD_ZERO(&rfds);
+    //FD_SET(0, &rfds);//MCT-1.0 + improve receive Many Connections Test
+
+
 
     while (1)
     {
@@ -75,16 +77,22 @@ int main(int argc, char **argv)
             printf("server: got connection from %s, port %d, socket %d\n",
                    inet_ntoa(their_addr.sin_addr),ntohs(their_addr.sin_port), new_fd);
         */
-
+        maxfd=0;
+        //int *fd;
+        //fd=(int *)malloc(sizeof(int));
         int fd[2];
-        for (int i = 0; i <lisnum ; ++i) {
+        for (int i = 0; i <2 ; ++i) {
             if ((fd[i]=accept(sockfd, (struct sockaddr *) &their_addr,&len)) == -1){
                 perror("accept");
                 exit(errno);
             } else {
                 printf("server: got %dth connection from %s, port %d, socket %d\n",
-                       i, inet_ntoa(their_addr.sin_addr), ntohs(their_addr.sin_port), new_fd);
-                FD_SET(new_fd, &rfds);
+                       i, inet_ntoa(their_addr.sin_addr), ntohs(their_addr.sin_port), *fd);
+                //FD_SET(fd[i], &rfds);
+                if (fd[i]>maxfd){
+                    maxfd=fd[i];
+                }
+
             }
         }
 
@@ -92,10 +100,12 @@ int main(int argc, char **argv)
         while (1){
 
             //MCT-1.0 -
-            //FD_ZERO(&rfds);
-            //FD_SET(0, &rfds);
-            //FD_SET(new_fd, &rfds);
-            maxfd = fd[lisnum-1]+1;
+            FD_ZERO(&rfds);
+            FD_SET(0, &rfds);
+            FD_SET(fd[0], &rfds);
+            FD_SET(fd[1], &rfds);
+
+
             tv.tv_sec = 3;
             tv.tv_usec = 0;
 
@@ -118,7 +128,8 @@ int main(int argc, char **argv)
                         printf("i will quit!\n");
                         break;
                     }
-                    len = send(new_fd, buf, strlen(buf) - 1, 0);
+                    len = send(fd[1], buf, strlen(buf) - 1, 0);
+                    //len = send(fd[2], buf, strlen(buf) - 1, 0);
                     if (len > 0)
                         printf ("send successful,%d byte send!\n",len);
                     else {
@@ -126,7 +137,12 @@ int main(int argc, char **argv)
                         break;
                     }
                 }
-                if (FD_ISSET(new_fd, &rfds))
+                if (FD_ISSET(fd[1], &rfds)){
+                    new_fd=fd[1];
+                } else if(FD_ISSET(fd[0],&rfds)){
+                    new_fd=fd[0];
+                }
+                if(FD_ISSET(new_fd,&rfds))
                 {
                     bzero(buf, MAXBUF + 1);
                     len = recv(new_fd, buf, MAXBUF, 0);
