@@ -99,8 +99,7 @@ int main(int argc, char **argv)
                     printf ("message send failure");
                     break;
                 } else
-                    printf
-                        ("send success,%d byte send\n",len);
+                    printf("send success,%d byte send\n",len);
             }
         }
     }
